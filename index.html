@@ -3,23 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>品牌罗盘｜超级个人品牌原型测试</title>
+  <title>品牌罗盘｜AI 品牌策划工作台</title>
   <link rel="stylesheet" href="src/styles.css" />
 </head>
 <body>
   <main class="shell">
     <section class="hero">
       <div>
-        <p class="eyebrow">Founder Archetype Report</p>
+        <p class="eyebrow">Brand Compass AI Studio</p>
         <h1>品牌罗盘</h1>
-        <p class="lead">回答品牌情境题，生成你的「主原型 + 次原型」报告，并把抽象人格转化为可执行的品牌策略。</p>
+        <p class="lead">从人格原型测试到品牌报告，再到 DeepSeek 辅助的 slogan、定位、竞品、视觉、活动、传播与危机方案，一站式生成品牌策划资产。</p>
       </div>
-      <div class="hero-card"><span>12 原型</span><span>4 象限</span><span>动态报告</span></div>
+      <div class="hero-card"><span>原型测试</span><span>AI 工作台</span><span>提示词库</span></div>
     </section>
-    <section id="quiz" class="panel"></section>
+
+    <nav class="tabs" aria-label="产品功能导航">
+      <button class="tab active" data-tab="quiz">原型测试</button>
+      <button class="tab" data-tab="studio">AI 策划工作台</button>
+      <button class="tab" data-tab="library">提示词库</button>
+      <button class="tab" data-tab="sources">资料库</button>
+    </nav>
+
+    <section id="quiz" class="panel tab-panel"></section>
+    <section id="studio" class="panel tab-panel hidden"></section>
+    <section id="library" class="panel tab-panel hidden"></section>
+    <section id="sources" class="panel tab-panel hidden"></section>
     <section id="result" class="panel hidden"></section>
   </main>
+  <script src="src/runtime-config.js"></script>
   <script src="src/data.js"></script>
+  <script src="src/promptPack.js"></script>
   <script src="src/app.js"></script>
 </body>
 </html>
