@@ -1,12 +1,28 @@
 const { ARCHETYPES, QUESTIONS } = window.BRAND_COMPASS_DATA;
-const state = { answers: {} };
+const { modules: PROMPT_MODULES, guide: PROMPT_GUIDE } = window.PROMPT_PACK;
+const RUNTIME = window.BRAND_COMPASS_RUNTIME || {};
+
+const state = { answers: {}, lastReport: null };
 const quizEl = document.querySelector('#quiz');
 const resultEl = document.querySelector('#result');
+const studioEl = document.querySelector('#studio');
+const libraryEl = document.querySelector('#library');
+const sourcesEl = document.querySelector('#sources');
+
+function initTabs(){
+  document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x===btn));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
+    resultEl.classList.add('hidden');
+    document.querySelector('#'+tab).classList.remove('hidden');
+  }));
+}
 
 function renderQuiz(){
   const answered = Object.keys(state.answers).length;
   const percent = Math.round(answered / QUESTIONS.length * 100);
-  quizEl.innerHTML = `<div class="topbar"><div><p class="eyebrow">Brand Compass Test</p><h2>人格原型问卷</h2></div><div class="progress"><span>${answered}/${QUESTIONS.length}</span><div><i style="width:${percent}%"></i></div></div></div><div class="questions">${QUESTIONS.map(q=>`<article class="question ${q.source==='supplement'?'supplement':''}"><div class="q-title"><b>${q.id}</b><span>${q.text}</span></div><div class="options">${q.options.map(([key,text,archetype])=>`<label class="option ${state.answers[q.id]===archetype?'selected':''}"><input type="radio" name="q${q.id}" value="${archetype}" ${state.answers[q.id]===archetype?'checked':''}/><strong>${key}</strong><span>${text}</span></label>`).join('')}</div></article>`).join('')}</div><div class="actions sticky-actions"><button class="ghost" id="fillSample">填入样例：探索者 + 平凡人</button><button class="primary" id="submit" ${answered<QUESTIONS.length?'disabled':''}>生成原型报告</button></div>`;
+  quizEl.innerHTML = `<div class="topbar"><div><p class="eyebrow">Step 1 / Archetype Test</p><h2>人格原型问卷</h2><p class="muted">回答 48 道品牌情境题，生成可复制、可打印的原型报告，并可带入 AI 策划工作台。</p></div><div class="progress"><span>${answered}/${QUESTIONS.length}</span><div><i style="width:${percent}%"></i></div></div></div><div class="questions">${QUESTIONS.map(q=>`<article class="question ${q.source==='supplement'?'supplement':''}"><div class="q-title"><b>${q.id}</b><span>${q.text}</span></div><div class="options">${q.options.map(([key,text,archetype])=>`<label class="option ${state.answers[q.id]===archetype?'selected':''}"><input type="radio" name="q${q.id}" value="${archetype}" ${state.answers[q.id]===archetype?'checked':''}/><strong>${key}</strong><span>${text}</span></label>`).join('')}</div></article>`).join('')}</div><div class="actions sticky-actions"><button class="ghost" id="fillSample">填入样例：探索者 + 平凡人</button><button class="primary" id="submit" ${answered<QUESTIONS.length?'disabled':''}>生成原型报告</button></div>`;
   quizEl.querySelectorAll('input[type="radio"]').forEach(input=>input.addEventListener('change',e=>{state.answers[Number(e.target.name.replace('q',''))]=e.target.value;renderQuiz()}));
   quizEl.querySelector('#fillSample').onclick = fillSample;
   quizEl.querySelector('#submit').onclick = showReport;
@@ -37,15 +53,110 @@ function showReport(){
   const primary=ranked[0][0], secondary=ranked.find(([k])=>k!==primary)[0];
   const md=buildMarkdown(primary,secondary,ranked,quadrants);
   const p=ARCHETYPES[primary], s=ARCHETYPES[secondary];
+  state.lastReport = { primary, secondary, markdown: md, title: `${p.name} + ${s.name}` };
   quizEl.classList.add('hidden'); resultEl.classList.remove('hidden');
-  resultEl.innerHTML=`<div class="report-cover"><p class="eyebrow">Founder Archetype Report</p><h2>${p.name} <span>+</span> ${s.name}</h2><p>${p.tagline}｜${s.tagline}</p></div><div class="actions"><button class="primary" id="print">打印 / 保存 PDF</button><button class="ghost" id="copy">复制 Markdown</button><button class="ghost" id="download">下载 Markdown</button><button class="ghost" id="back">重新测试</button></div><article class="markdown">${markdownToHtml(md)}</article>`;
+  resultEl.innerHTML=`<div class="report-cover"><p class="eyebrow">Founder Archetype Report</p><h2>${p.name} <span>+</span> ${s.name}</h2><p>${p.tagline}｜${s.tagline}</p></div><div class="actions"><button class="primary" id="print">打印 / 保存 PDF</button><button class="ghost" id="copy">复制 Markdown</button><button class="ghost" id="download">下载 Markdown</button><button class="ghost" id="toStudio">带入 AI 工作台</button><button class="ghost" id="back">重新测试</button></div><article class="markdown">${markdownToHtml(md)}</article>`;
   resultEl.querySelector('#print').onclick=()=>window.print();
   resultEl.querySelector('#copy').onclick=async()=>{await navigator.clipboard.writeText(md);alert('已复制报告 Markdown')};
   resultEl.querySelector('#download').onclick=()=>downloadText(`原型报告_${p.name}_${s.name}.md`,md);
+  resultEl.querySelector('#toStudio').onclick=()=>{openTab('studio'); document.querySelector('#brandContext').value = md.slice(0,2600);};
   resultEl.querySelector('#back').onclick=()=>{resultEl.classList.add('hidden');quizEl.classList.remove('hidden')};
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+function renderStudio(){
+  const options = PROMPT_MODULES.flatMap(m=>m.prompts.map(p=>`<option value="${p.id}">${m.title}｜${p.title}</option>`)).join('');
+  studioEl.innerHTML = `<div class="topbar"><div><p class="eyebrow">Step 2 / AI Brand Planning</p><h2>AI 策划工作台</h2><p class="muted">选择一个策划任务，填入品牌信息，调用 DeepSeek 生成结果。GitHub Pages 是静态站点，若使用浏览器直连 API，Key 会暴露给访问者；公开部署建议改成后端代理。</p></div></div>
+  <div class="studio-grid">
+    <form id="studioForm" class="studio-form">
+      <label>品牌名称<input id="brandName" placeholder="例如：繁荣学社" /></label>
+      <label>行业 / 品类<input id="industry" placeholder="例如：个人品牌咨询 / AI品牌策划" /></label>
+      <label>目标人群<input id="audience" placeholder="例如：创业者、品牌策划师、营销负责人" /></label>
+      <label>核心卖点<input id="sellingPoint" placeholder="例如：原型测试 + AI策略生成" /></label>
+      <label>选择任务<select id="promptSelect">${options}</select></label>
+      <label>DeepSeek API Key（可选，优先使用 GitHub Actions 注入）<input id="apiKey" type="password" placeholder="sk-...；仅保存在本浏览器 localStorage" /></label>
+      <label class="wide">品牌上下文 / 原型报告<textarea id="brandContext" rows="9" placeholder="可粘贴原型报告、品牌背景、竞品资料、用户评价等"></textarea></label>
+      <div class="actions wide"><button type="button" class="ghost" id="loadReport">载入最新原型报告</button><button type="button" class="ghost" id="previewPrompt">预览提示词</button><button type="submit" class="primary">生成策划方案</button></div>
+    </form>
+    <div class="ai-output"><div class="output-head"><strong>输出结果</strong><button class="ghost mini" id="copyOutput">复制</button></div><pre id="aiOutput">选择任务后，点击“预览提示词”或“生成策划方案”。</pre></div>
+  </div>`;
+  const savedKey = localStorage.getItem('deepseek_api_key') || '';
+  if(savedKey) studioEl.querySelector('#apiKey').value = savedKey;
+  studioEl.querySelector('#loadReport').onclick=()=>{studioEl.querySelector('#brandContext').value=state.lastReport?.markdown || '';};
+  studioEl.querySelector('#previewPrompt').onclick=()=>{studioEl.querySelector('#aiOutput').textContent=composePrompt();};
+  studioEl.querySelector('#copyOutput').onclick=async()=>{await navigator.clipboard.writeText(studioEl.querySelector('#aiOutput').textContent); alert('已复制')};
+  studioEl.querySelector('#studioForm').onsubmit=runDeepSeek;
+}
+
+function findPrompt(id){
+  for(const m of PROMPT_MODULES){ const p=m.prompts.find(x=>x.id===id); if(p) return {module:m,prompt:p}; }
+  return null;
+}
+
+function composePrompt(){
+  const pick=findPrompt(document.querySelector('#promptSelect')?.value || PROMPT_MODULES[0].prompts[0].id);
+  const brandName=document.querySelector('#brandName')?.value || '[品牌名称]';
+  const industry=document.querySelector('#industry')?.value || '[行业/品类]';
+  const audience=document.querySelector('#audience')?.value || '[目标人群]';
+  const sellingPoint=document.querySelector('#sellingPoint')?.value || '[核心卖点]';
+  const context=document.querySelector('#brandContext')?.value || '';
+  return `你是品牌罗盘 AI 策划工作台。请结合“超级个人品牌原型报告”和品牌策划提示词，输出专业、可执行、结构清晰的中文方案。\n\n## 品牌基础信息\n- 品牌名称：${brandName}\n- 行业/品类：${industry}\n- 目标人群：${audience}\n- 核心卖点：${sellingPoint}\n\n## 选用提示词模块\n${pick.module.title} / ${pick.prompt.title}\n\n## 原始提示词\n${pick.prompt.template}\n\n## 可参考上下文\n${context || '暂无，可基于品牌基础信息生成。'}\n\n## 输出要求\n1. 不要只替换模板，要结合上下文进行深度策划。\n2. 先给结论，再给推导。\n3. 输出可直接交付给客户或团队执行的版本。\n4. 如信息不足，先给合理假设，再标明需要补充的信息。`;
+}
+
+async function runDeepSeek(e){
+  e.preventDefault();
+  const out=studioEl.querySelector('#aiOutput');
+  const keyInput=studioEl.querySelector('#apiKey').value.trim();
+  if(keyInput) localStorage.setItem('deepseek_api_key', keyInput);
+  const apiKey = keyInput || RUNTIME.deepseekApiKey || localStorage.getItem('deepseek_api_key');
+  if(!apiKey){ out.textContent='未检测到 DeepSeek API Key。你可以在输入框填入 Key；或在 GitHub Actions 中用仓库 Secret 注入 runtime-config.js。'; return; }
+  out.textContent='正在调用 DeepSeek 生成中...';
+  try{
+    const res = await fetch(RUNTIME.deepseekEndpoint || 'https://api.deepseek.com/chat/completions', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+      body: JSON.stringify({model:RUNTIME.deepseekModel || 'deepseek-chat', messages:[{role:'system',content:'你是资深品牌战略顾问、个人品牌原型分析师和营销策划总监。'},{role:'user',content:composePrompt()}], temperature:0.7})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    out.textContent = data.choices?.[0]?.message?.content || JSON.stringify(data,null,2);
+  }catch(err){ out.textContent = `调用失败：${err.message}\n\n提示：公开 GitHub Pages 若浏览器直连 DeepSeek，API Key 会暴露。生产环境建议改为 Cloudflare Worker / Vercel Function / 自有后端代理。`; }
+}
+
+function renderLibrary(){
+  libraryEl.innerHTML = `<div class="topbar"><div><p class="eyebrow">Prompt Library</p><h2>品牌策划提示词库</h2><p class="muted">来自上传的《品牌策划专用AI提示词包》，整理为 10 大模块、50 个高频策划任务，并融合进 AI 工作台。</p></div><input class="search" id="promptSearch" placeholder="搜索：slogan / 竞品 / VI / 危机..." /></div><div id="promptList" class="prompt-list"></div>`;
+  const render=(kw='')=>{
+    const keyword=kw.trim().toLowerCase();
+    libraryEl.querySelector('#promptList').innerHTML = PROMPT_MODULES.map(m=>{
+      const prompts=m.prompts.filter(p=>(m.title+p.title+p.template).toLowerCase().includes(keyword));
+      if(!prompts.length) return '';
+      return `<article class="module-card"><h3>${m.title}</h3><p>${m.description}</p>${prompts.map(p=>`<details><summary>${p.title}</summary><pre>${escapeHtml(p.template)}</pre><div class="actions"><button class="ghost mini usePrompt" data-id="${p.id}">带入工作台</button><button class="ghost mini copyPrompt" data-id="${p.id}">复制</button></div></details>`).join('')}</article>`;
+    }).join('');
+    libraryEl.querySelectorAll('.usePrompt').forEach(btn=>btn.onclick=()=>{openTab('studio'); document.querySelector('#promptSelect').value=btn.dataset.id;});
+    libraryEl.querySelectorAll('.copyPrompt').forEach(btn=>btn.onclick=async()=>{await navigator.clipboard.writeText(findPrompt(btn.dataset.id).prompt.template); alert('已复制提示词')});
+  };
+  libraryEl.querySelector('#promptSearch').oninput=e=>render(e.target.value);
+  render();
+}
+
+function renderSources(){
+  sourcesEl.innerHTML = `<div class="topbar"><div><p class="eyebrow">Source Library</p><h2>资料库</h2><p class="muted">已将两个 PDF 和一个 DOCX 的信息结构化，作为产品数据源保存在仓库中。</p></div></div><div class="source-grid">
+    <a class="source-card" href="data/source_pdfs/品牌罗盘人格原型.json" target="_blank"><strong>品牌罗盘人格原型.json</strong><span>43页截图型问卷：题目、选项、已选答案、表单信息。</span></a>
+    <a class="source-card" href="data/source_pdfs/原型报告_探索者_平凡人.json" target="_blank"><strong>原型报告_探索者_平凡人.json</strong><span>13页报告：正文、版式、图形、品牌罗盘结构。</span></a>
+    <a class="source-card" href="data/source_docs/品牌策划专用AI提示词包.json" target="_blank"><strong>品牌策划专用AI提示词包.json</strong><span>DOCX 原始段落、表格、提示词文本与结构。</span></a>
+    <a class="source-card" href="src/promptPack.js" target="_blank"><strong>promptPack.js</strong><span>面向网站交互优化后的 10 模块 50 提示词数据。</span></a>
+  </div><article class="module-card"><h3>提示词写法方法论</h3>${PROMPT_GUIDE.writingRules.map(x=>`<p><strong>${x.title}：</strong>${x.text}</p>`).join('')}<p><strong>常见示例：</strong>${PROMPT_GUIDE.samplePromptTypes.join('、')}</p></article>`;
+}
+
+function openTab(tab){
+  document.querySelector(`.tab[data-tab="${tab}"]`).click();
+}
+
 function markdownToHtml(md){return md.replace(/^# (.*)$/gm,'<h1>$1</h1>').replace(/^## (.*)$/gm,'<h2>$1</h2>').replace(/^### (.*)$/gm,'<h3>$1</h3>').replace(/^> (.*)$/gm,'<blockquote>$1</blockquote>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').split('\n').map(line=>{if(!line.trim())return'';if(line.startsWith('<'))return line;if(line.startsWith('- '))return`<li>${line.slice(2)}</li>`;if(/^\d+\. /.test(line))return`<li>${line.replace(/^\d+\. /,'')}</li>`;return`<p>${line}</p>`}).join('\n').replace(/(<li>.*<\/li>\n?)+/g,m=>`<ul>${m}</ul>`)}
+function escapeHtml(str){return String(str).replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));}
 function downloadText(filename,content){const blob=new Blob([content],{type:'text/markdown;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url)}
+
+initTabs();
 renderQuiz();
+renderStudio();
+renderLibrary();
+renderSources();
