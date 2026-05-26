@@ -3,28 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>品牌罗盘｜AI 品牌策划工作台</title>
+  <title>品牌罗盘｜AI 品牌策划工具包</title>
   <link rel="stylesheet" href="src/styles.css" />
 </head>
 <body>
   <main class="shell">
     <section class="hero">
       <div>
-        <p class="eyebrow">Brand Compass AI Studio</p>
+        <p class="eyebrow">Brand Compass AI Toolkit</p>
         <h1>品牌罗盘</h1>
-        <p class="lead">从人格原型测试到品牌报告，再到 DeepSeek 辅助的 slogan、定位、竞品、视觉、活动、传播与危机方案，一站式生成品牌策划资产。</p>
+        <p class="lead">一个真正可用的 AI 品牌策划工具包：先做原型测试，再把品牌信息交给 DeepSeek，一键生成定位、Slogan、竞品分析、视觉方案、活动策划、传播策略、危机回应和长期规划。</p>
       </div>
-      <div class="hero-card"><span>原型测试</span><span>AI 工作台</span><span>提示词库</span></div>
+      <div class="hero-card"><span>DeepSeek</span><span>10 大工具</span><span>原型报告</span></div>
     </section>
 
     <nav class="tabs" aria-label="产品功能导航">
-      <button class="tab active" data-tab="quiz">原型测试</button>
-      <button class="tab" data-tab="studio">AI 策划工作台</button>
+      <button class="tab active" data-tab="tools">工具包</button>
+      <button class="tab" data-tab="quiz">原型测试</button>
+      <button class="tab" data-tab="studio">自由工作台</button>
       <button class="tab" data-tab="library">提示词库</button>
       <button class="tab" data-tab="sources">资料库</button>
     </nav>
 
-    <section id="quiz" class="panel tab-panel"></section>
+    <section id="tools" class="panel tab-panel">
+      <div class="loading-card">
+        <h2>工具包加载中...</h2>
+        <p>如果这里一直没有内容，请刷新页面；本页会自动检测 DeepSeek Key，并展示可直接使用的品牌策划工具。</p>
+      </div>
+    </section>
+    <section id="quiz" class="panel tab-panel hidden"></section>
     <section id="studio" class="panel tab-panel hidden"></section>
     <section id="library" class="panel tab-panel hidden"></section>
     <section id="sources" class="panel tab-panel hidden"></section>
